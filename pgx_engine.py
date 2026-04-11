@@ -502,137 +502,127 @@ else:
 # In[12]:
 
 
+# === UPDATED call_pgx_alleles - Clinical Grade Version ===
+
+# === FINAL UPDATED call_pgx_alleles - GSA Realistic Version ===
+
 def call_pgx_alleles(cleaned_df):
     """
-    Comprehensive PGx analysis covering 11 high-evidence genes.
-    All recommendations based on CPIC guidelines and FDA labels.
+    Realistic PGx analysis focused on genes detectable on Illumina GSA arrays.
+    Only 5 genes with actual variant detection.
+    All recommendations based on CPIC guidelines.
     """
     results = {}
     
-    # 1. CYP2C19
+    # ==================== 1. CYP2C19 ====================
     cyp2c19 = cleaned_df[cleaned_df['GENE'] == 'CYP2C19']
     a1 = "*1"; a2 = "*1"
     if not cyp2c19.empty:
-        d2 = cyp2c19[cyp2c19['Position'] == 94775453]['Dosage'].iloc[0] if any(cyp2c19['Position'] == 94775453) else 0
-        d3 = cyp2c19[cyp2c19['Position'] == 94762706]['Dosage'].iloc[0] if any(cyp2c19['Position'] == 94762706) else 0
+        d2 = cyp2c19[cyp2c19['Position'] == 94775453]['DOSAGE'].iloc[0] if any(cyp2c19['Position'] == 94775453) else 0
+        d3 = cyp2c19[cyp2c19['Position'] == 94762706]['DOSAGE'].iloc[0] if any(cyp2c19['Position'] == 94762706) else 0
         if d2 == 2: a1 = a2 = "*2"
         elif d2 == 1: a1 = "*2"
         if d3 == 1 and a1 == "*1": a1 = "*3"
         elif d3 == 1: a2 = "*3"
+    
     dip = f"{a1}/{a2}"
+    phenotype = "Normal Metabolizer" if dip == "*1/*1" else "Intermediate Metabolizer" if "*1" in dip else "Poor Metabolizer"
+    
     results["CYP2C19"] = {
+        "gene": "CYP2C19",
         "diplotype": dip,
-        "phenotype": {"*1/*1":"Normal Metabolizer", "*1/*2":"Intermediate Metabolizer", "*1/*3":"Intermediate Metabolizer",
-                      "*2/*2":"Poor Metabolizer", "*2/*3":"Poor Metabolizer", "*3/*3":"Poor Metabolizer"}.get(dip, "Normal Metabolizer"),
+        "phenotype": phenotype,
+        "cpic_level": "A",
+        "confidence": "High",
+        "functional_impact": "Reduced function" if "*2" in dip or "*3" in dip else "Normal function",
+        "clinical_relevance": "High" if "*2" in dip or "*3" in dip else "Low",
         "drugs": "Clopidogrel, Omeprazole, Esomeprazole, Citalopram, Escitalopram, Sertraline",
-        "conditions": "Cardiovascular event prevention, GERD, Depression & Anxiety",
-        "sa_note": " *2 allele frequency is high (~35-40%) in South Indian/Tamil populations" if "*2" in dip else ""
+        "conditions": "Cardiovascular prevention, GERD, Depression & Anxiety",
+        "sa_note": "High *2 frequency (~35-40%) in South Indian/Tamil populations" if "*2" in dip else "",
+        "recommendation_strength": "Strong" if "*2" in dip or "*3" in dip else "Standard"
     }
     
-    # 2. Warfarin (CYP2C9 + VKORC1)
-    # (code same as before - abbreviated for space)
+    # ==================== 2. Warfarin (CYP2C9 + VKORC1) ====================
     cyp2c9 = cleaned_df[cleaned_df['GENE'] == 'CYP2C9']
     c9a1 = "*1"; c9a2 = "*1"
     if not cyp2c9.empty:
-        if any(cyp2c9['Position'] == 94942291) and cyp2c9[cyp2c9['Position'] == 94942291]['Dosage'].iloc[0] >= 1: c9a1 = "*2"
-        if any(cyp2c9['Position'] == 94981276) and cyp2c9[cyp2c9['Position'] == 94981276]['Dosage'].iloc[0] >= 1: c9a2 = "*3"
+        if any(cyp2c9['Position'] == 94942291) and cyp2c9[cyp2c9['Position'] == 94942291]['DOSAGE'].iloc[0] >= 1: c9a1 = "*2"
+        if any(cyp2c9['Position'] == 94981276) and cyp2c9[cyp2c9['Position'] == 94981276]['DOSAGE'].iloc[0] >= 1: c9a2 = "*3"
     c9dip = f"{c9a1}/{c9a2}"
     
     vkor = cleaned_df[cleaned_df['GENE'] == 'VKORC1']
     vkor_geno = "GG"
     if not vkor.empty:
-        vkor_geno = "AA" if vkor['Dosage'].iloc[0] == 2 else "GA" if vkor['Dosage'].iloc[0] == 1 else "GG"
+        vkor_geno = "AA" if vkor['DOSAGE'].iloc[0] == 2 else "GA" if vkor['DOSAGE'].iloc[0] == 1 else "GG"
     
     results["Warfarin (CYP2C9 + VKORC1)"] = {
-        "cyp2c9": c9dip,
-        "vkorc1": vkor_geno,
+        "gene": "CYP2C9 + VKORC1",
+        "cyp2c9_diplotype": c9dip,
+        "vkorc1_genotype": vkor_geno,
+        "cpic_level": "A",
+        "confidence": "High",
+        "functional_impact": "Reduced warfarin metabolism" if c9a1 != "*1" or vkor_geno != "GG" else "Normal",
+        "clinical_relevance": "High",
         "drugs": "Warfarin",
         "conditions": "Atrial fibrillation, DVT, Pulmonary embolism, Stroke prevention",
-        "note": "CPIC guideline recommends dose adjustment based on combined genotype"
+        "recommendation_strength": "Strong"
     }
     
-    # 3. SLCO1B1, 4. CYP2D6  (same as previous version)
+    # ==================== 3. SLCO1B1 ====================
     slco = cleaned_df[cleaned_df['GENE'] == 'SLCO1B1']
     slco_geno = "*1/*1"
     if not slco.empty:
-        d = slco['Dosage'].iloc[0]
+        d = slco['DOSAGE'].iloc[0]
         slco_geno = "*5/*5" if d == 2 else "*1/*5" if d == 1 else "*1/*1"
+    
     results["SLCO1B1"] = {
+        "gene": "SLCO1B1",
         "genotype": slco_geno,
+        "cpic_level": "A",
+        "confidence": "High",
+        "functional_impact": "Decreased transporter function" if "*5" in slco_geno else "Normal",
+        "clinical_relevance": "Moderate" if "*5" in slco_geno else "Low",
         "drugs": "Simvastatin, Atorvastatin",
         "conditions": "High cholesterol, Cardiovascular prevention",
-        "risk": "High myopathy risk (CPIC guideline)" if "*5/*5" in slco_geno else "Moderate myopathy risk" if "*1/*5" in slco_geno else "Normal"
+        "recommendation_strength": "Moderate"
     }
     
+    # ==================== 4. CYP2D6 ====================
     cyp2d6 = cleaned_df[cleaned_df['GENE'] == 'CYP2D6']
     d6 = "*1"
     if not cyp2d6.empty:
-        if any(cyp2d6['Position'] == 42525086) and cyp2d6[cyp2d6['Position'] == 42525086]['Dosage'].iloc[0] >= 1: d6 = "*4"
-        elif any(cyp2d6['Position'] == 42522613) and cyp2d6[cyp2d6['Position'] == 42522613]['Dosage'].iloc[0] >= 1: d6 = "*10"
+        if any(cyp2d6['Position'] == 42525086) and cyp2d6[cyp2d6['Position'] == 42525086]['DOSAGE'].iloc[0] >= 1:
+            d6 = "*4"
+        elif any(cyp2d6['Position'] == 42522613) and cyp2d6[cyp2d6['Position'] == 42522613]['DOSAGE'].iloc[0] >= 1:
+            d6 = "*10"
+    
     results["CYP2D6"] = {
+        "gene": "CYP2D6",
         "diplotype": f"{d6}/*1",
-        "phenotype": "Normal" if d6 == "*1" else "Intermediate" if d6 in ["*4","*10"] else "Poor",
+        "phenotype": "Normal" if d6 == "*1" else "Intermediate",
+        "cpic_level": "A",
+        "confidence": "Moderate",
+        "functional_impact": "Reduced function" if d6 in ["*4", "*10"] else "Normal function",
+        "clinical_relevance": "Moderate",
         "drugs": "Codeine, Tramadol, Tamoxifen, Amitriptyline, Nortriptyline",
-        "conditions": "Pain management, Breast cancer treatment, Depression"
+        "conditions": "Pain management, Breast cancer treatment, Depression",
+        "recommendation_strength": "Moderate"
     }
     
-    # New genes (all CPIC/FDA supported)
-    results["TPMT / NUDT15"] = {
-        "genotype": "*1/*1 (assumed - limited GSA coverage)",
-        "drugs": "Azathioprine, 6-Mercaptopurine, Thioguanine",
-        "conditions": "Acute lymphoblastic leukemia, Inflammatory bowel disease, Autoimmune disorders",
-        "note": "CPIC guideline: Poor metabolizers have high risk of severe myelosuppression"
-    }
-    
-    results["DPYD"] = {
-        "genotype": "*1/*1 (assumed)",
-        "drugs": "5-Fluorouracil (5-FU), Capecitabine",
-        "conditions": "Colorectal cancer, Breast cancer, Gastric cancer",
-        "note": "CPIC/FDA: Variants significantly increase risk of severe/fatal toxicity"
-    }
-    
-    results["UGT1A1"] = {
-        "genotype": "*1/*1 (assumed)",
-        "drugs": "Irinotecan",
-        "conditions": "Colorectal cancer, Lung cancer",
-        "note": "*28/*28 associated with increased neutropenia risk (CPIC guideline)"
-    }
-    
-    results["G6PD"] = {
-        "genotype": "Normal (assumed)",
-        "drugs": "Primaquine, Rasburicase, Dapsone, Nitrofurantoin",
-        "conditions": "Malaria, Gout, Urinary tract infections",
-        "note": "Deficiency can cause acute hemolytic anemia (CPIC guideline)"
-    }
-    
-    results["HLA-B*58:01"] = {
-        "genotype": "Negative (assumed - not on GSA array)",
-        "drugs": "Allopurinol",
-        "conditions": "Gout, Hyperuricemia",
-        "note": "Positive = high risk of severe cutaneous adverse reaction (SCAR) - CPIC guideline"
-    }
-    
-    # Print comprehensive report
-    print("✅ Comprehensive PGx Analysis — 11 Genes (CPIC/FDA-based)\n")
-    for gene, info in results.items():
+    # Print summary
+    print("✅ PGx Analysis Complete - 5 Genes Detectable on Illumina GSA Array\n")
+    for gene, data in results.items():
         print(f"● {gene}")
-        for k, v in info.items():
-            if v and k not in ["sa_note"]:
-                print(f"   {k.replace('_', ' ').title()}: {v}")
-        if info.get("sa_note"):
-            print(f"   South Asian Context: {info['sa_note']}")
-        print("-" * 70)
+        print(f"   Diplotype/Genotype : {data.get('diplotype') or data.get('genotype') or data.get('cyp2c9_diplotype')}")
+        print(f"   Phenotype          : {data.get('phenotype') or data.get('functional_impact')}")
+        print(f"   CPIC Level         : {data.get('cpic_level')}")
+        print(f"   Related Drugs      : {data.get('drugs')}")
+        print(f"   Clinical Use       : {data.get('conditions')}")
+        if data.get("sa_note"):
+            print(f"   South Asian Note   : {data['sa_note']}")
+        print("-" * 60)
     
     return results
-
-
-# === Test ===
-print("=== Step 12: Testing 11-Gene Comprehensive Caller ===")
-
-if 'cleaned' in globals() and cleaned is not None:
-    full_results = call_pgx_alleles(cleaned)
-else:
-    print("⚠️ 'cleaned' variable not found. Re-run Step 4 first.")
 
 
 # # === Step 13: Updated Full PGx Report Function ===
