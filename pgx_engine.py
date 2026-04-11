@@ -502,24 +502,30 @@ else:
 # In[12]:
 
 
-# === UPDATED call_pgx_alleles - Clinical Grade Version ===
-
-# === FINAL UPDATED call_pgx_alleles - GSA Realistic Version ===
+# === FIXED call_pgx_alleles - Column Name Safe Version ===
 
 def call_pgx_alleles(cleaned_df):
     """
-    Realistic PGx analysis focused on genes detectable on Illumina GSA arrays.
-    Only 5 genes with actual variant detection.
-    All recommendations based on CPIC guidelines.
+    Realistic PGx analysis for Illumina GSA detectable genes.
+    Fixed column name handling for 'DOSAGE' vs 'Dosage'.
     """
+    if cleaned_df is None or cleaned_df.empty:
+        return {}
+
     results = {}
+    
+    # Safe way to get dosage column
+    dosage_col = 'DOSAGE' if 'DOSAGE' in cleaned_df.columns else 'Dosage'
     
     # ==================== 1. CYP2C19 ====================
     cyp2c19 = cleaned_df[cleaned_df['GENE'] == 'CYP2C19']
     a1 = "*1"; a2 = "*1"
     if not cyp2c19.empty:
-        d2 = cyp2c19[cyp2c19['Position'] == 94775453]['DOSAGE'].iloc[0] if any(cyp2c19['Position'] == 94775453) else 0
-        d3 = cyp2c19[cyp2c19['Position'] == 94762706]['DOSAGE'].iloc[0] if any(cyp2c19['Position'] == 94762706) else 0
+        pos2 = 94775453
+        pos3 = 94762706
+        d2 = cyp2c19[cyp2c19['Position'] == pos2][dosage_col].iloc[0] if any(cyp2c19['Position'] == pos2) else 0
+        d3 = cyp2c19[cyp2c19['Position'] == pos3][dosage_col].iloc[0] if any(cyp2c19['Position'] == pos3) else 0
+        
         if d2 == 2: a1 = a2 = "*2"
         elif d2 == 1: a1 = "*2"
         if d3 == 1 and a1 == "*1": a1 = "*3"
@@ -546,14 +552,16 @@ def call_pgx_alleles(cleaned_df):
     cyp2c9 = cleaned_df[cleaned_df['GENE'] == 'CYP2C9']
     c9a1 = "*1"; c9a2 = "*1"
     if not cyp2c9.empty:
-        if any(cyp2c9['Position'] == 94942291) and cyp2c9[cyp2c9['Position'] == 94942291]['DOSAGE'].iloc[0] >= 1: c9a1 = "*2"
-        if any(cyp2c9['Position'] == 94981276) and cyp2c9[cyp2c9['Position'] == 94981276]['DOSAGE'].iloc[0] >= 1: c9a2 = "*3"
+        if any(cyp2c9['Position'] == 94942291) and cyp2c9[cyp2c9['Position'] == 94942291][dosage_col].iloc[0] >= 1: 
+            c9a1 = "*2"
+        if any(cyp2c9['Position'] == 94981276) and cyp2c9[cyp2c9['Position'] == 94981276][dosage_col].iloc[0] >= 1: 
+            c9a2 = "*3"
     c9dip = f"{c9a1}/{c9a2}"
     
     vkor = cleaned_df[cleaned_df['GENE'] == 'VKORC1']
     vkor_geno = "GG"
     if not vkor.empty:
-        vkor_geno = "AA" if vkor['DOSAGE'].iloc[0] == 2 else "GA" if vkor['DOSAGE'].iloc[0] == 1 else "GG"
+        vkor_geno = "AA" if vkor[dosage_col].iloc[0] == 2 else "GA" if vkor[dosage_col].iloc[0] == 1 else "GG"
     
     results["Warfarin (CYP2C9 + VKORC1)"] = {
         "gene": "CYP2C9 + VKORC1",
@@ -572,7 +580,7 @@ def call_pgx_alleles(cleaned_df):
     slco = cleaned_df[cleaned_df['GENE'] == 'SLCO1B1']
     slco_geno = "*1/*1"
     if not slco.empty:
-        d = slco['DOSAGE'].iloc[0]
+        d = slco[dosage_col].iloc[0]
         slco_geno = "*5/*5" if d == 2 else "*1/*5" if d == 1 else "*1/*1"
     
     results["SLCO1B1"] = {
@@ -591,9 +599,9 @@ def call_pgx_alleles(cleaned_df):
     cyp2d6 = cleaned_df[cleaned_df['GENE'] == 'CYP2D6']
     d6 = "*1"
     if not cyp2d6.empty:
-        if any(cyp2d6['Position'] == 42525086) and cyp2d6[cyp2d6['Position'] == 42525086]['DOSAGE'].iloc[0] >= 1:
+        if any(cyp2d6['Position'] == 42525086) and cyp2d6[cyp2d6['Position'] == 42525086][dosage_col].iloc[0] >= 1:
             d6 = "*4"
-        elif any(cyp2d6['Position'] == 42522613) and cyp2d6[cyp2d6['Position'] == 42522613]['DOSAGE'].iloc[0] >= 1:
+        elif any(cyp2d6['Position'] == 42522613) and cyp2d6[cyp2d6['Position'] == 42522613][dosage_col].iloc[0] >= 1:
             d6 = "*10"
     
     results["CYP2D6"] = {
@@ -609,17 +617,14 @@ def call_pgx_alleles(cleaned_df):
         "recommendation_strength": "Moderate"
     }
     
-    # Print summary
-    print("✅ PGx Analysis Complete - 5 Genes Detectable on Illumina GSA Array\n")
+    # Summary print
+    print("✅ PGx Analysis Complete - 5 GSA Detectable Genes\n")
     for gene, data in results.items():
         print(f"● {gene}")
-        print(f"   Diplotype/Genotype : {data.get('diplotype') or data.get('genotype') or data.get('cyp2c9_diplotype')}")
-        print(f"   Phenotype          : {data.get('phenotype') or data.get('functional_impact')}")
-        print(f"   CPIC Level         : {data.get('cpic_level')}")
+        print(f"   Diplotype/Genotype : {data.get('diplotype') or data.get('genotype') or data.get('cyp2c9_diplotype', 'N/A')}")
+        print(f"   Phenotype          : {data.get('phenotype') or data.get('functional_impact', 'N/A')}")
+        print(f"   CPIC Level         : {data.get('cpic_level', 'A')}")
         print(f"   Related Drugs      : {data.get('drugs')}")
-        print(f"   Clinical Use       : {data.get('conditions')}")
-        if data.get("sa_note"):
-            print(f"   South Asian Note   : {data['sa_note']}")
         print("-" * 60)
     
     return results
